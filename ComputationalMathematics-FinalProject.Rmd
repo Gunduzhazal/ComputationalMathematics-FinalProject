@@ -1,0 +1,354 @@
+**Data 605 - Final Project**
+
+**Hazal Gunduz**
+
+**Problem 1.**
+
+**Probability Density 1: X\~Gamma.** Using R, generate a random variable X that has 10,000 random Gamma pdf values. A Gamma pdf is completely describe by n (a size parameter) and lambda (λ, a shape parameter). Choose any n greater 3 and an expected value (λ) between 2 and 10 (you choose).
+
+```{r}
+set.seed(0)
+
+n <- 4
+lambda <- 2
+a <- 10000
+
+X <- rgamma(a, n, lambda)
+summary(X)
+```
+
+
+```{r}
+hist(X, col = 'skyblue')
+```
+
+**Probability Density 2: Y\~Sum of Exponentials.** Then generate 10,000 observations from the sum of n exponential pdfs with rate/shape parameter ( λ). The n and λ must be the same as in the previous case. (e.g., mysum=rexp(10000, λ) + rexp(10000, λ) + ...)
+
+```{r}
+set.seed(0)
+
+Y <- rexp(a, lambda) + rexp(a, lambda) + rexp(a, lambda) + rexp(a, lambda)
+hist(Y, col = 'orange')
+```
+
+**Probability Density 3: Z\~Exponential.** Then generate 10,000 observations from a single exponential pdf with rate/shape parameter (λ).
+
+```{r}
+set.seed(0)
+
+Z <- rexp(a, lambda)
+hist(Z, col = 'green')
+```
+
+**1a. Calculate the empirical expected value (means) and variances of all three pdfs.**
+
+```{r}
+n <- 4
+lambda <- 2
+
+meanX <- 4 / 2
+meanX
+
+varX <- 4 / 2^2
+varX
+```
+
+
+```{r}
+meanY <- 4 / 2
+meanY
+
+varY <- 4 / 2^2
+varY
+```
+
+```{r}
+meanZ <- (1 / 2) / 2
+meanZ
+
+varZ <- (1 / 2^2) / 2^2
+varZ
+```
+
+**1b.** Using calculus, calculate the expected value and variance of the Gamma pdf (X). Using the moment generating function for exponentials, calculate the expected value of the single exponential (Z) and the sum of exponentials (Y)
+
+λ = 2
+
+$λe^{-xλ}$ = exponentials distribution
+
+M(t) = $\int_{0}^{\infty} λe^{-xλ}. e^{tx} = \frac{-λ}{t - λ}$
+
+$\frac{λ}{(t - λ)^2} = M'(t)$
+
+$\frac{1}{λ} = M'(0)$
+
+Expected Value : $\frac{1}{λ} = \frac{1}{2}$
+
+$M''(0) = \frac{λ}{(t - λ)^2{(t -λ)}} = \frac{2λ}{(t - λ)3}$
+
+$\frac{2λ}{(- λ)^3}$
+
+$\frac{2}{(λ)^2}$
+
+Variance : $\frac{2}{(λ)^2} = \frac{2}{4} = \frac{1}{2}$
+
+**1c-e.Probability.** For pdf Z (the exponential), calculate empirically probabilities a through c. Then evaluate through calculus whether the memoryless property holds.
+
+a.P(Z>λ | Z>λ/2) b.P(Z>2λ | Z>λ) c. P(Z>3λ | Z>λ)
+
+$P(A|B) = \frac{P(A∪B)}{P(B)}$
+
+```{r}
+a <- mean(Z > lambda & Z > lambda / 2) / (mean(Z > lambda / 2))
+a 
+
+b <- mean(Z > 2 * lambda & Z > lambda) / (mean(Z > lambda ))
+b
+
+c <- mean(Z > 3 * lambda & Z > lambda) / (mean(Z > lambda ))
+c
+```
+
+Loosely investigate whether P(YZ) = P(Y) P(Z) by building a table with quartiles and evaluating the marginal and joint probabilities.
+
+```{r}
+quantY <- quantile(Y, probs = c(.25,.5,.75,1))
+quantY <- as.matrix(t(quantY))
+colnames(quantY) = c("25% Y", "50% Y", "75% Y", "100% Y")
+
+quantZ = quantile(Z, probs = c(.25,.5,.75,1))
+quantZ = as.matrix(quantZ)
+rownames(quantZ) = c("25% Z", "50% Z", "75% Z", "100% Z")
+
+P_YZ <- quantZ %*% quantY
+
+P_Sum <- sum(P_YZ)
+```
+
+
+```{r}
+prob_YZ <- matrix(nrow = 4, ncol = 4)
+for (row in 1:4) {
+    for (col in 1:4) {
+        prob_YZ[row,col] = P_YZ[row,col]/P_Sum
+    }
+}
+colnames(prob_YZ) = c("25% Y", "50% Y", "75% Y", "100% Y")
+rownames(prob_YZ) = c("25% Z", "50% Z", "75% Z", "100% Z")
+prob_YZ
+```
+
+```{r}
+RSum <- rowSums(prob_YZ)
+CSum <- colSums(prob_YZ)
+
+Result <- cbind(prob_YZ, RSum)
+Result <- rbind(Result, CSum)
+Result[4,4] 
+Result
+```
+
+Check to see if independence holds by using Fisher's Exact Test and the Chi Square Test. What is the difference between the two? Which is most appropriate?
+
+```{r}
+FisherTest <- prob_YZ * 10000
+
+fisher.test(FisherTest, simulate.p.value = T)
+```
+
+```{r}
+chisq.test(FisherTest)
+```
+
+The Fisher Exact Test and the Chi-Square Test give the same p-value of 1 and verify that the "Y" and "Z" samples are independent.
+
+**Problem 2.**
+
+You are to register for Kaggle.com (free) and compete in the House Prices: Advanced Regression Techniques competition. <https://www.kaggle.com/c/house-prices-advanced-regression-techniques>
+
+**Descriptive and Inferential Statistics.** Provide univariate descriptive statistics and appropriate plots for the training data set.Provide a scatterplot matrix for at least two of the independent variables and the dependent variable. Derive a correlation matrix for any three quantitative variables in the dataset. Test the hypotheses that the correlations between each pairwise set of variables is 0 and provide an 80% confidence interval. Discuss the meaning of your analysis. Would you be worried about familywise error? Why or why not?
+
+```{r}
+train <- read.csv(file = "~/Downloads/train.csv", header=TRUE)
+head(train, 10)
+```
+
+```{r}
+test <- read.csv(file = "~/Downloads/test.csv")
+head(test, 10)
+```
+
+```{r}
+summary(train)
+```
+
+Univariate descriptive statistics describe a single variable in a dataset. We will use summary() to get a variety for SalePrice variable.
+
+```{r}
+summary(train$SalePrice)
+sd(train$SalePrice)
+```
+
+```{r}
+hist(train$SalePrice, col = 'orange')
+```
+
+```{r}
+dotchart(train$SalePrice, col = 'green')
+```
+
+We used a density plot to describe the SalePrice.
+
+```{r}
+plot(density(train$SalePrice))
+```
+
+The plots of log "SalePrice" charts compared to the originals in the "Histogram and DotChart" section to see if "SalePrice" is currently distributed.
+
+```{r}
+hist(log(train$SalePrice))
+```
+
+```{r}
+dotchart(log(train$SalePrice))
+```
+
+**Linear Algebra and Correlation.** Invert your correlation matrix from above. (This is known as the precision matrix and contains variance inflation factors on the diagonal.) Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix. Conduct LU decomposition on the matrix.
+
+**Correlation**
+
+A correlation matrix is like a numerical version of our scatterplot and shows correlations between multiple variables. Here is the correlation matrix for all of them because it is instructive,we are looking at the two most and least related to SalePrice: GeneralQual and GeneralCond.
+
+```{r}
+cor(train[c("SalePrice", "LotArea", "OverallQual", "OverallCond", "YearBuilt")])
+```
+
+```{r}
+CorrelationMatrix <- cor(train[c("SalePrice", "OverallQual", "OverallCond")])
+CorrelationMatrix
+```
+
+We can see with 80% confidence, if our correlations are zero. If the p-value is less than 5% then we can reject the hypothesis that the tested correlation is zero. If the p-value is higher than 5%, we can't reject our hypothesis that the tested correlation is zero.
+
+```{r}
+cor.test(train$SalePrice, train$OverallQual, confidence = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice, train$OverallCond, confidence = 0.80)
+```
+
+**Precision Matrix**
+
+We multiply the correlation matrix by the precision matrix.
+
+```{r}
+PrecisionMatrix <- solve(CorrelationMatrix)
+PrecisionMatrix
+```
+
+```{r}
+CorrelationMatrix %*% PrecisionMatrix
+```
+
+LU decomposition is when we transform an nxn matrix into two triangular matrices, a (L)low triangular matrix, and a (U)pper triangular matrix. The lower triangle matrix has all the zeros above the diagonal, and the upper triangle matrix has all the zeros below the diagonal line, such as when we multiply low by upper, we get the original nxn matrix.
+
+```{r}
+library(pracma)
+LU <- lu(PrecisionMatrix)
+LU$L
+
+LU$U
+```
+
+**Calculus-Based Probability & Statistics.** Many times, it makes sense to fit a closed form distribution to data. Select a variable in the Kaggle.com training dataset that is skewed to the right, shift it so that the minimum value is absolutely above zero if necessary. Then load the MASS package and run fitdistr to fit an exponential probability density function. (See <https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html> ). Find the optimal value of λ for this distribution, and then take 1000 samples from this exponential distribution using this value (e.g., rexp(1000, λ)). Plot a histogram and compare it with a histogram of your original variable. Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF). Also generate a 95% confidence interval from the empirical data, assuming normality. Finally, provide the empirical 5th percentile and 95th percentile of the data. Discuss.
+
+```{r}
+library(moments)
+
+skewness(train$SalePrice)
+skewness(train$OverallQual)
+skewness(train$OverallCond)
+skewness(train$LotArea)
+skewness(train$YearBuilt)
+```
+
+```{r}
+range(train$SalePrice)
+```
+
+The lowest Sale Price is $34,900.
+
+```{r}
+library(MASS)
+
+ExpProbability <- fitdistr(train$SalePrice, "exponential")
+ExpProbability
+```
+
+```{r}
+lambda <- ExpProbability$estimate
+set.seed(1000)
+GenerationData <- rexp(1000, rate = lambda)
+lambda
+```
+
+```{r}
+hist(train$SalePrice, main = "Original Data", col = "lightgreen")
+```
+
+```{r}
+hist(GenerationData, main = "Generated Data", col = "lightblue")
+```
+
+**5th and 95th Percentiles**
+
+```{r}
+qexp(0.05, rate = lambda)
+
+qexp(0.95, rate = lambda)
+```
+
+**95% Confidence Interval**
+
+```{r}
+qnorm(0.95, mean(train$SalePrice), sd(train$SalePrice))
+```
+
+**5th & 95th Empirical**
+
+```{r}
+quantile(train$SalePrice, 0.05, names = FALSE)
+
+quantile(train$SalePrice, 0.95, names=FALSE)
+```
+
+**Modeling.** Build some type of multiple regression model and submit your model to the competition board. Provide your complete model summary and results with analysis. Report your Kaggle.com user name and score. Provide a screen snapshot of your score with your name identifiable.
+
+We are building a model for estimating SalePrice based on the OverallCond, OverallQual, LotArea and YearBuilt of the houses. This model is a multiple regression model with SalePrice as the response variable and OverallCond, OverallQual, LotArea and YearBuilt as the predictor variables.
+
+```{r}
+Model <- lm(SalePrice ~ OverallCond + OverallQual + LotArea + YearBuilt, data = train)
+summary(Model)
+```
+
+```{r}
+summary(Model)$coefficients
+```
+
+```{r}
+ModelTransform = lm(SalePrice^(1/2) ~ OverallCond + OverallQual + LotArea + YearBuilt, data = train)
+summary(ModelTransform)
+```
+
+```{r}
+summary(ModelTransform)$coefficients
+```
+
+
+![](images/hazalgunduz:house-prices-advanced-regression-techniques.png)
+
+RPubs =>  https://rpubs.com/gunduzhazal/1042906
+
+
+
